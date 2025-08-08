@@ -147,7 +147,7 @@ export default function LotteryMachine({ gm, draftOrder, activeGM, setDraftOrder
       const myPick = draftOrder.find(d => d.name === gm)?.position;
       setPickedNumber(myPick);
       setBalls(balls => balls.map(b => ({ ...b, highlight: b.number === myPick })));
-      // Audio is optional; safely skip if not present
+      // Audio optional; safe to skip if file missing
       try {
         const audio = new Audio("/sounds/nfl-theme.mp3");
         audio.play().catch(()=>{});
