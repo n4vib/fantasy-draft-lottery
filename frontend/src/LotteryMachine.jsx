@@ -1,10 +1,11 @@
 import React, { useRef, useState, useEffect } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, Text, useTexture } from "@react-three/drei";
+import { OrbitControls, Text } from "@react-three/drei";
 import { Physics, useBox, useSphere, usePlane } from "@react-three/cannon";
 import { socket } from "./sockets.js";
 import * as THREE from "three";
 
+/* ---------- Ball ---------- */
 function Ball({ number, position, color, highlight }) {
   const [ref] = useSphere(() => ({ mass: 1, position, args: [0.4] }));
   return (
@@ -18,12 +19,16 @@ function Ball({ number, position, color, highlight }) {
   );
 }
 
+/* ---------- Lever ---------- */
 function Lever({ onPull }) {
   const leverRef = useRef();
   const pulling = useRef(false);
   useFrame(() => {
-    if (pulling.current) leverRef.current.rotation.z = THREE.MathUtils.lerp(leverRef.current.rotation.z, -Math.PI / 4, 0.1);
-    else leverRef.current.rotation.z = THREE.MathUtils.lerp(leverRef.current.rotation.z, 0, 0.1);
+    if (pulling.current) {
+      leverRef.current.rotation.z = THREE.MathUtils.lerp(leverRef.current.rotation.z, -Math.PI / 4, 0.1);
+    } else {
+      leverRef.current.rotation.z = THREE.MathUtils.lerp(leverRef.current.rotation.z, 0, 0.1);
+    }
   });
   const handleClick = () => {
     if (!pulling.current) {
@@ -44,6 +49,7 @@ function Lever({ onPull }) {
   );
 }
 
+/* ---------- Chute & Ground ---------- */
 function Chute() {
   const [ref] = useBox(() => ({ type: "Static", position: [0, -0.5, 2], rotation: [-0.5, 0, 0], args: [2, 0.1, 4] }));
   return (
@@ -64,22 +70,24 @@ function Ground() {
   );
 }
 
+/* ---------- Drum ---------- */
 function LotteryDrum({ balls, spinning }) {
   const group = useRef();
   useFrame(() => { group.current.rotation.y += spinning ? 0.05 : 0.01; });
   return <group ref={group}>{balls.map((b) => <Ball key={b.number} {...b} />)}</group>;
 }
 
+/* ---------- Solid Background (no image needed) ---------- */
 function StageBackground() {
-  const texture = useTexture("/images/stage.jpg");
   return (
     <mesh position={[0, 3, -8]}>
       <planeGeometry args={[16, 9]} />
-      <meshBasicMaterial map={texture} />
+      <meshBasicMaterial color={"#0b1220"} />
     </mesh>
   );
 }
 
+/* ---------- Camera Zoom Helper ---------- */
 function useCameraAnimation(trigger, targetPos, targetLookAt) {
   const { camera } = useThree();
   const [animating, setAnimating] = useState(false);
@@ -100,6 +108,7 @@ function useCameraAnimation(trigger, targetPos, targetLookAt) {
   return animating;
 }
 
+/* ---------- Main Component ---------- */
 export default function LotteryMachine({ gm, draftOrder, activeGM, setDraftOrder, setActiveGM }) {
   const [spinning, setSpinning] = useState(false);
   const [balls, setBalls] = useState([]);
@@ -138,8 +147,11 @@ export default function LotteryMachine({ gm, draftOrder, activeGM, setDraftOrder
       const myPick = draftOrder.find(d => d.name === gm)?.position;
       setPickedNumber(myPick);
       setBalls(balls => balls.map(b => ({ ...b, highlight: b.number === myPick })));
-      const audio = new Audio("/sounds/nfl-theme.mp3");
-      audio.play().catch(()=>{});
+      // Audio is optional; safely skip if not present
+      try {
+        const audio = new Audio("/sounds/nfl-theme.mp3");
+        audio.play().catch(()=>{});
+      } catch (_) {}
       setReveal(true);
       setTimeout(() => { setReveal(false); setSpinning(false); setPickIn(false); }, 5000);
     });
