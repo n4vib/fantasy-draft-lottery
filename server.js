@@ -1,12 +1,8 @@
-import express from "express";
-import http from "http";
-import { Server } from "socket.io";
-import cors from "cors";
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const cors = require("cors");
+const path = require("path");
 
 const app = express();
 app.use(cors());
@@ -53,4 +49,37 @@ io.on("connection", (socket) => {
       return;
     }
     if (draftOrder.find(p => p.name === name)) {
-      socket.emit("loginInf
+      socket.emit("loginInfo", "You have already picked. Enjoy the show!");
+    }
+    socket.emit("loginSuccess", { name, turnOrder, draftOrder, activeGM });
+  });
+
+  socket.on("pullBall", ({ name }) => {
+    if (name !== activeGM) {
+      socket.emit("errorMsg", "Not your turn!");
+      return;
+    }
+    const randIndex = Math.floor(Math.random() * availableNumbers.length);
+    const number = availableNumbers.splice(randIndex, 1)[0];
+    draftOrder.push({ name, position: number });
+    draftOrder.sort((a, b) => a.position - b.position);
+
+    currentTurnIndex++;
+    activeGM = turnOrder[currentTurnIndex] || null;
+
+    io.emit("draftUpdate", { draftOrder, activeGM, turnOrder });
+  });
+
+  socket.on("resetDraft", () => startDraft());
+});
+
+startDraft();
+
+// Serve built React
+app.use(express.static(path.join(__dirname, "frontend", "dist")));
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "frontend", "dist", "index.html"));
+});
+
+const PORT = process.env.PORT || 4000;
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
