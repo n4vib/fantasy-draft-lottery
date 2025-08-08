@@ -5,6 +5,27 @@ import { Physics, useBox, useSphere, usePlane } from "@react-three/cannon";
 import { socket } from "./sockets.js";
 import * as THREE from "three";
 
+/* ---------- Camera rig (inside Canvas) ---------- */
+function CameraRig({ reveal }) {
+  const { camera } = useThree();
+  const init = useRef(false);
+
+  useFrame(() => {
+    // Set a nice default once
+    if (!init.current) {
+      camera.position.set(0, 3, 10);
+      camera.lookAt(0, 0, 0);
+      init.current = true;
+    }
+    // Target positions
+    const targetPos = reveal ? new THREE.Vector3(0, 1, 5) : new THREE.Vector3(0, 3, 10);
+    camera.position.lerp(targetPos, 0.05);
+    camera.lookAt(0, -0.5, 2);
+  });
+
+  return null;
+}
+
 /* ---------- Ball ---------- */
 function Ball({ number, position, color, highlight }) {
   const [ref] = useSphere(() => ({ mass: 1, position, args: [0.4] }));
@@ -24,11 +45,8 @@ function Lever({ onPull }) {
   const leverRef = useRef();
   const pulling = useRef(false);
   useFrame(() => {
-    if (pulling.current) {
-      leverRef.current.rotation.z = THREE.MathUtils.lerp(leverRef.current.rotation.z, -Math.PI / 4, 0.1);
-    } else {
-      leverRef.current.rotation.z = THREE.MathUtils.lerp(leverRef.current.rotation.z, 0, 0.1);
-    }
+    const target = pulling.current ? -Math.PI / 4 : 0;
+    leverRef.current.rotation.z = THREE.MathUtils.lerp(leverRef.current.rotation.z, target, 0.1);
   });
   const handleClick = () => {
     if (!pulling.current) {
@@ -87,27 +105,6 @@ function StageBackground() {
   );
 }
 
-/* ---------- Camera Zoom Helper ---------- */
-function useCameraAnimation(trigger, targetPos, targetLookAt) {
-  const { camera } = useThree();
-  const [animating, setAnimating] = useState(false);
-  useEffect(() => {
-    if (trigger) {
-      setAnimating(true);
-      let frame = 0;
-      const animate = () => {
-        frame++;
-        camera.position.lerp(new THREE.Vector3(...targetPos), 0.05);
-        camera.lookAt(...targetLookAt);
-        if (frame < 60) requestAnimationFrame(animate);
-        else setAnimating(false);
-      };
-      animate();
-    }
-  }, [trigger]);
-  return animating;
-}
-
 /* ---------- Main Component ---------- */
 export default function LotteryMachine({ gm, draftOrder, activeGM, setDraftOrder, setActiveGM }) {
   const [spinning, setSpinning] = useState(false);
@@ -117,12 +114,14 @@ export default function LotteryMachine({ gm, draftOrder, activeGM, setDraftOrder
   const [pickIn, setPickIn] = useState(false);
   const isMyTurn = gm === activeGM;
 
-  useCameraAnimation(reveal, [0, 1, 5], [0, -0.5, 2]);
-
   useEffect(() => {
     const arr = Array.from({ length: 12 }, (_, i) => ({
       number: i + 1,
-      position: [ Math.cos((i / 12) * Math.PI * 2) * 2, Math.sin((i / 12) * Math.PI * 2) * 2, 0 ],
+      position: [
+        Math.cos((i / 12) * Math.PI * 2) * 2,
+        Math.sin((i / 12) * Math.PI * 2) * 2,
+        0
+      ],
       color: "white",
       highlight: false
     }));
@@ -148,10 +147,7 @@ export default function LotteryMachine({ gm, draftOrder, activeGM, setDraftOrder
       setPickedNumber(myPick);
       setBalls(balls => balls.map(b => ({ ...b, highlight: b.number === myPick })));
       // Audio optional; safe to skip if file missing
-      try {
-        const audio = new Audio("/sounds/nfl-theme.mp3");
-        audio.play().catch(()=>{});
-      } catch (_) {}
+      try { new Audio("/sounds/nfl-theme.mp3").play().catch(()=>{}); } catch(_) {}
       setReveal(true);
       setTimeout(() => { setReveal(false); setSpinning(false); setPickIn(false); }, 5000);
     });
@@ -173,7 +169,8 @@ export default function LotteryMachine({ gm, draftOrder, activeGM, setDraftOrder
           <Chute />
           <LotteryDrum balls={balls} spinning={spinning} />
         </Physics>
-        <mesh position={[3,0,0]}><Lever onPull={pullBall} /></mesh>
+        <Lever onPull={pullBall} />
+        <CameraRig reveal={reveal} />
         <OrbitControls enableZoom={false} />
       </Canvas>
       {pickedNumber && isMyTurn && (
